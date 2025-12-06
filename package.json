@@ -7,5 +7,9 @@
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^9.0.0",
     "nodemon": "^3.1.11"
-  }
+  },
+  "scripts": {
+  "start": "node server.js"
+}
+
 }
