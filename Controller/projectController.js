@@ -1,30 +1,188 @@
-// src/Models/Project.js
-const mongoose = require("mongoose");
+// src/controllers/projectController.js
+const Project = require("../Models/Project");
 
-const projectSchema = new mongoose.Schema(
-  {
-    Title: { type: String, required: true },
-    Tag: { type: String, required: true },
-    SemiDesc: { type: String, required: true },
-    FullDesc: { type: String, required: true },
-    ClientName: { type: String, required: true },
-    Technology: { type: String, required: true },
-    Category: { type: String, required: true },
-    FinishDate: { type: Date, required: true },
+// ✅ إضافة مشروع جديد
+// ✅ إضافة مشروع جديد (مع صور)
+const createProject = async (req, res) => {
+  try {
+    const {
+      Title,
+      Tag,
+      SemiDesc,
+      FullDesc,
+      ClientName,
+      Tecnology,
+      FinishDate,
+      Category, // لو عندك
+    } = req.body;
 
-    // 🟢 الصور
-    mainImage: {
-      type: String, // URL أو path
-      required: true,
-    },
+    // Validation بسيط
+    if (
+      !Title ||
+      !Tag ||
+      !SemiDesc ||
+      !FullDesc ||
+      !ClientName ||
+      !Tecnology ||
+      !FinishDate
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "All required fields must be provided",
+      });
+    }
 
-    galleryImages: [
-      {
-        type: String, // URLs أو paths
-      },
-    ],
-  },
-  { timestamps: true }
-);
+    // ✅ main image required
+    const main = req.files?.mainImage?.[0];
+    if (!main) {
+      return res.status(400).json({
+        success: false,
+        message: "mainImage is required",
+      });
+    }
 
-module.exports = mongoose.model("Project", projectSchema);
+    const gallery = req.files?.galleryImages || [];
+
+    const mainImagePath = `/uploads/projects/${main.filename}`;
+    const galleryPaths = gallery.map((f) => `/uploads/projects/${f.filename}`);
+
+    const project = await Project.create({
+      Title,
+      Tag,
+      SemiDesc,
+      FullDesc,
+      ClientName,
+      Tecnology,
+      FinishDate,
+      Category,
+      mainImage: mainImagePath,
+      galleryImages: galleryPaths,
+    });
+
+    res.status(201).json({
+      success: true,
+      message: "Project created successfully",
+      data: project,
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({
+      success: false,
+      message: "Error creating project",
+      error: err.message,
+    });
+  }
+};
+
+
+// ✅ جلب كل المشاريع
+const getAllProjects = async (req, res) => {
+  try {
+    const projects = await Project.find().sort({ createdAt: -1 });
+    res.json({ success: true, data: projects });
+  } catch (err) {
+    console.error(err);
+    res
+      .status(500)
+      .json({ success: false, message: "Error fetching projects", error: err.message });
+  }
+};
+
+// ✅ جلب مشروع واحد بالـ ID
+const getProjectById = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const project = await Project.findById(id);
+    if (!project) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Project not found" });
+    }
+
+    res.json({ success: true, data: project });
+  } catch (err) {
+    console.error(err);
+    res
+      .status(500)
+      .json({ success: false, message: "Error fetching project", error: err.message });
+  }
+};
+
+// ✅ تعديل مشروع
+// ✅ تعديل مشروع (مع إمكانية تحديث الصور)
+const updateProject = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const updates = { ...req.body };
+
+    // لو فيه صور جديدة
+    const main = req.files?.mainImage?.[0];
+    const gallery = req.files?.galleryImages || [];
+
+    if (main) {
+      updates.mainImage = `/uploads/projects/${main.filename}`;
+    }
+
+    if (gallery.length > 0) {
+      updates.galleryImages = gallery.map((f) => `/uploads/projects/${f.filename}`)
+    }
+
+    const project = await Project.findByIdAndUpdate(id, updates, {
+      new: true,
+      runValidators: true,
+    });
+
+    if (!project) {
+      return res.status(404).json({ success: false, message: "Project not found" });
+    }
+
+    res.json({
+      success: true,
+      message: "Project updated successfully",
+      data: project,
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({
+      success: false,
+      message: "Error updating project",
+      error: err.message,
+    });
+  }
+};
+
+
+// ✅ حذف مشروع
+const deleteProject = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const project = await Project.findByIdAndDelete(id);
+
+    if (!project) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Project not found" });
+    }
+
+    res.json({
+      success: true,
+      message: "Project deleted successfully",
+    });
+  } catch (err) {
+    console.error(err);
+    res
+      .status(500)
+      .json({ success: false, message: "Error deleting project", error: err.message });
+  }
+};
+
+module.exports = {
+  createProject,
+  getAllProjects,
+  getProjectById,
+  updateProject,
+  deleteProject,
+};
