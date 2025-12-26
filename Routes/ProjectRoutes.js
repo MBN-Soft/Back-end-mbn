@@ -8,6 +8,9 @@ const {
   deleteProject,
 } = require("../Controller/projectController");
 
+const upload = require("../Midderlware/uploadProjectImages");
+
+
 const {
   authMiddleware,
   adminMiddleware,
@@ -25,7 +28,15 @@ router.get("/projects", getAllProjects);
 router.get("/projects/:id", validateObjectId, getProjectById);
 
 // ✅ إضافة مشروع (لازم يكون مستخدم + أدمن)
-router.post("/projects", authMiddleware, adminMiddleware, createProject);
+router.post( "/projects",
+  authMiddleware,
+  adminMiddleware,
+  upload.fields([
+    { name: "mainImage", maxCount: 1 },
+    { name: "galleryImages", maxCount: 10 },
+  ]),
+  createProject
+);
 // أو لو عايز تستخدم ProjectMiddleware:
 // router.post("/projects", authMiddleware, ProjectMiddleware, createProject);
 
@@ -35,8 +46,13 @@ router.put(
   authMiddleware,
   adminMiddleware,
   validateObjectId,
+  upload.fields([
+    { name: "mainImage", maxCount: 1 },
+    { name: "galleryImages", maxCount: 10 },
+  ]),
   updateProject
 );
+
 
 // ✅ حذف مشروع
 router.delete(
