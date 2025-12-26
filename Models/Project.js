@@ -8,10 +8,21 @@ const projectSchema = new mongoose.Schema(
     SemiDesc: { type: String, required: true },
     FullDesc: { type: String, required: true },
     ClientName: { type: String, required: true },
-    Tecnology: { type: String, required: true }, // أو Technology لو حابب تصحح الاسم
+    Technology: { type: String, required: true },
+    Category: { type: String, required: true },
     FinishDate: { type: Date, required: true },
-    // ممكن تخليها رابط صورة أو Object
-    Imgproject: { type: String }, // مثال: رابط الصورة
+
+    // 🟢 الصور
+    mainImage: {
+      type: String, // URL أو path
+      required: true,
+    },
+
+    galleryImages: [
+      {
+        type: String, // URLs أو paths
+      },
+    ],
   },
   { timestamps: true }
 );
