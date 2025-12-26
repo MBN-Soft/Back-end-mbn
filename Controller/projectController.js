@@ -24,7 +24,8 @@ const createProject = async (req, res) => {
       !FullDesc ||
       !ClientName ||
       !Tecnology ||
-      !FinishDate
+      !FinishDate ||
+      !Category
     ) {
       return res.status(400).json({
         success: false,
