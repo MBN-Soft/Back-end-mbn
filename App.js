@@ -18,7 +18,7 @@ app.use(express.json());
 
 // ================== Static uploads ==================
 // 👇 مهم جدًا عشان الصور تفتح من المتصفح
-app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+app.use("/uploads", express.static(path.join(__dirname, "..", "uploads")));
 
 // ================== Connect DB ==================
 connectDB();
