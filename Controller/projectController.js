@@ -13,6 +13,7 @@ const createProject = async (req, res) => {
       ClientName,
       Tecnology,
       FinishDate,
+      Link,
       Category, // لو عندك
     } = req.body;
 
@@ -44,8 +45,8 @@ const createProject = async (req, res) => {
 
     const gallery = req.files?.galleryImages || [];
 
-    const mainImagePath = `/uploads/projects/${main.filename}`;
-    const galleryPaths = gallery.map((f) => `/uploads/projects/${f.filename}`);
+    const mainImagePath = `/uploads/project/${main.filename}`;
+    const galleryPaths = gallery.map((f) => `/uploads/project/${f.filename}`);
 
     const project = await Project.create({
       Title,
