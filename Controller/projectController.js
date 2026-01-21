@@ -1,8 +1,5 @@
-// src/controllers/projectController.js
-const Project = require("../Models/Project");
-
+const supabase = require("../utils/supabaseClient");
 // ✅ إضافة مشروع جديد
-// ✅ إضافة مشروع جديد (مع صور)
 const createProject = async (req, res) => {
   try {
     const {
@@ -14,19 +11,12 @@ const createProject = async (req, res) => {
       Tecnology,
       FinishDate,
       Link,
-      Category, // لو عندك
+      Category,
     } = req.body;
 
-    // Validation بسيط
     if (
-      !Title ||
-      !Tag ||
-      !SemiDesc ||
-      !FullDesc ||
-      !ClientName ||
-      !Tecnology ||
-      !FinishDate ||
-      !Category
+      !Title || !Tag || !SemiDesc || !FullDesc ||
+      !ClientName || !Tecnology || !FinishDate || !Category
     ) {
       return res.status(400).json({
         success: false,
@@ -34,7 +24,7 @@ const createProject = async (req, res) => {
       });
     }
 
-    // ✅ main image required
+    // main image required
     const main = req.files?.mainImage?.[0];
     if (!main) {
       return res.status(400).json({
@@ -44,28 +34,35 @@ const createProject = async (req, res) => {
     }
 
     const gallery = req.files?.galleryImages || [];
-
     const mainImagePath = `/uploads/project/${main.filename}`;
     const galleryPaths = gallery.map((f) => `/uploads/project/${f.filename}`);
 
-    const project = await Project.create({
-      Title,
-      Tag,
-      SemiDesc,
-      FullDesc,
-      ClientName,
-      Tecnology,
-      FinishDate,
-      Category,
-      mainImage: mainImagePath,
-      galleryImages: galleryPaths,
-    });
+    const { data: project, error } = await supabase
+      .from("projects")
+      .insert({
+        Title,
+        Tag,
+        SemiDesc,
+        FullDesc,
+        ClientName,
+        Tecnology,
+        FinishDate,
+        Category,
+        Link: Link || null,
+        mainImage: mainImagePath,
+        galleryImages: galleryPaths
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
 
     res.status(201).json({
       success: true,
       message: "Project created successfully",
       data: project,
     });
+
   } catch (err) {
     console.error(err);
     res.status(500).json({
@@ -76,17 +73,25 @@ const createProject = async (req, res) => {
   }
 };
 
-
 // ✅ جلب كل المشاريع
 const getAllProjects = async (req, res) => {
   try {
-    const projects = await Project.find().sort({ createdAt: -1 });
+    const { data: projects, error } = await supabase
+      .from("projects")
+      .select("*")
+      .order("created_at", { ascending: false });
+
+    if (error) throw error;
+
     res.json({ success: true, data: projects });
+
   } catch (err) {
     console.error(err);
-    res
-      .status(500)
-      .json({ success: false, message: "Error fetching projects", error: err.message });
+    res.status(500).json({
+      success: false,
+      message: "Error fetching projects",
+      error: err.message,
+    });
   }
 };
 
@@ -95,48 +100,48 @@ const getProjectById = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const project = await Project.findById(id);
-    if (!project) {
-      return res
-        .status(404)
-        .json({ success: false, message: "Project not found" });
+    const { data: project, error } = await supabase
+      .from("projects")
+      .select("*")
+      .eq("id", id)
+      .single();
+
+    if (error || !project) {
+      return res.status(404).json({ success: false, message: "Project not found" });
     }
 
     res.json({ success: true, data: project });
+
   } catch (err) {
     console.error(err);
-    res
-      .status(500)
-      .json({ success: false, message: "Error fetching project", error: err.message });
+    res.status(500).json({
+      success: false,
+      message: "Error fetching project",
+      error: err.message,
+    });
   }
 };
 
 // ✅ تعديل مشروع
-// ✅ تعديل مشروع (مع إمكانية تحديث الصور)
 const updateProject = async (req, res) => {
   try {
     const { id } = req.params;
-
     const updates = { ...req.body };
 
-    // لو فيه صور جديدة
     const main = req.files?.mainImage?.[0];
     const gallery = req.files?.galleryImages || [];
 
-    if (main) {
-      updates.mainImage = `/uploads/projects/${main.filename}`;
-    }
+    if (main) updates.mainImage = `/uploads/project/${main.filename}`;
+    if (gallery.length > 0) updates.galleryImages = gallery.map(f => `/uploads/project/${f.filename}`);
 
-    if (gallery.length > 0) {
-      updates.galleryImages = gallery.map((f) => `/uploads/projects/${f.filename}`)
-    }
+    const { data: project, error } = await supabase
+      .from("projects")
+      .update(updates)
+      .eq("id", id)
+      .select()
+      .single();
 
-    const project = await Project.findByIdAndUpdate(id, updates, {
-      new: true,
-      runValidators: true,
-    });
-
-    if (!project) {
+    if (error || !project) {
       return res.status(404).json({ success: false, message: "Project not found" });
     }
 
@@ -145,6 +150,7 @@ const updateProject = async (req, res) => {
       message: "Project updated successfully",
       data: project,
     });
+
   } catch (err) {
     console.error(err);
     res.status(500).json({
@@ -155,29 +161,29 @@ const updateProject = async (req, res) => {
   }
 };
 
-
 // ✅ حذف مشروع
 const deleteProject = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const project = await Project.findByIdAndDelete(id);
+    const { data, error } = await supabase
+      .from("projects")
+      .delete()
+      .eq("id", id);
 
-    if (!project) {
-      return res
-        .status(404)
-        .json({ success: false, message: "Project not found" });
+    if (error || !data || data.length === 0) {
+      return res.status(404).json({ success: false, message: "Project not found" });
     }
 
-    res.json({
-      success: true,
-      message: "Project deleted successfully",
-    });
+    res.json({ success: true, message: "Project deleted successfully" });
+
   } catch (err) {
     console.error(err);
-    res
-      .status(500)
-      .json({ success: false, message: "Error deleting project", error: err.message });
+    res.status(500).json({
+      success: false,
+      message: "Error deleting project",
+      error: err.message,
+    });
   }
 };
 
@@ -186,5 +192,5 @@ module.exports = {
   getAllProjects,
   getProjectById,
   updateProject,
-  deleteProject,
+  deleteProject
 };

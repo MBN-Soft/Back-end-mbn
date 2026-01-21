@@ -1,14 +1,17 @@
 // src/controllers/authController.js
 const jwt = require("jsonwebtoken");
+const supabase = require("../utils/supabaseClient");
+
 const User = require("../Models/User"); // أو ../models/User حسب الفولدر
 
 const createToken = (user) => {
   return jwt.sign(
-    { id: user._id, email: user.email, role: user.role },
+    { id: user.id, email: user.email, role: user.role },
     process.env.JWT_SECRET,
     { expiresIn: "7d" }
   );
 };
+
 
 /**
  * 🟢 registerAdmin (هنا بقت: عمل أول Super Admin في السيستم)
@@ -17,32 +20,49 @@ const createToken = (user) => {
  */
 const registerAdmin = async (req, res) => {
   try {
-    const { name, email, password } = req.body;
+    // تحقق لو فيه users موجودين بالفعل
+    const { data: users, error: fetchError } = await supabase
+      .from("users")
+      .select("id")
+      .limit(1);
 
-    // لو فيه يوزرز موجودين، امنع إنشاء سوبر جديد
-    const usersCount = await User.countDocuments();
-    if (usersCount > 0) {
+    if (users.length > 0) {
       return res.status(403).json({
         success: false,
         message: "Super admin already initialized",
       });
     }
 
-    const exists = await User.findOne({ email });
+    const { name, email, password } = req.body;
+
+    // تحقق من وجود email مسبقاً
+    const { data: exists } = await supabase
+      .from("users")
+      .select("id")
+      .eq("email", email)
+      .single();
+
     if (exists) {
       return res
         .status(400)
         .json({ success: false, message: "User already exists" });
     }
 
-    const user = new User({
-      name,
-      email,
-      password, // هيتشفّر في pre('save')
-      role: "superadmin",
-    });
+    // hash password
+    const hashedPassword = await bcrypt.hash(password, 10);
 
-    await user.save();
+    const { data: user, error } = await supabase
+      .from("users")
+      .insert({
+        name,
+        email: email.toLowerCase().trim(),
+        password: hashedPassword,
+        role: "superadmin"
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
 
     const token = createToken(user);
 
@@ -52,6 +72,7 @@ const registerAdmin = async (req, res) => {
       token,
       user,
     });
+
   } catch (err) {
     console.error(err);
     res.status(500).json({
@@ -70,17 +91,26 @@ const loginAdmin = async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    const user = await User.findOne({ email });
-    if (!user)
-      return res
-        .status(400)
-        .json({ success: false, message: "Invalid email or password" });
+    const { data: user } = await supabase
+      .from("users")
+      .select("*")
+      .eq("email", email.toLowerCase().trim())
+      .single();
 
-    const isMatch = await user.checkPassword(password);
-    if (!isMatch)
-      return res
-        .status(400)
-        .json({ success: false, message: "Invalid email or password" });
+    if (!user) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid email or password",
+      });
+    }
+
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid email or password",
+      });
+    }
 
     const token = createToken(user);
 
@@ -90,6 +120,7 @@ const loginAdmin = async (req, res) => {
       token,
       user,
     });
+
   } catch (err) {
     console.error(err);
     res.status(500).json({
@@ -110,9 +141,10 @@ const createUserBySuperAdmin = async (req, res) => {
     const { name, email, password, role } = req.body;
 
     if (!name || !email || !password || !role) {
-      return res
-        .status(400)
-        .json({ success: false, message: "All fields are required" });
+      return res.status(400).json({
+        success: false,
+        message: "All fields are required",
+      });
     }
 
     if (!["admin", "writer"].includes(role)) {
@@ -122,27 +154,40 @@ const createUserBySuperAdmin = async (req, res) => {
       });
     }
 
-    const exists = await User.findOne({ email });
+    const { data: exists } = await supabase
+      .from("users")
+      .select("id")
+      .eq("email", email.toLowerCase().trim())
+      .single();
+
     if (exists) {
-      return res
-        .status(400)
-        .json({ success: false, message: "Email already in use" });
+      return res.status(400).json({
+        success: false,
+        message: "Email already in use",
+      });
     }
 
-    const user = new User({
-      name,
-      email,
-      password,
-      role,
-    });
+    const hashedPassword = await bcrypt.hash(password, 10);
 
-    await user.save();
+    const { data: user, error } = await supabase
+      .from("users")
+      .insert({
+        name,
+        email: email.toLowerCase().trim(),
+        password: hashedPassword,
+        role
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
 
     res.status(201).json({
       success: true,
       message: "User created successfully",
       user,
     });
+
   } catch (err) {
     console.error(err);
     res.status(500).json({
@@ -169,16 +214,18 @@ const updateUserRole = async (req, res) => {
       });
     }
 
-    const user = await User.findByIdAndUpdate(
-      id,
-      { role },
-      { new: true, runValidators: true }
-    );
+    const { data: user, error } = await supabase
+      .from("users")
+      .update({ role })
+      .eq("id", id)
+      .select()
+      .single();
 
-    if (!user) {
-      return res
-        .status(404)
-        .json({ success: false, message: "User not found" });
+    if (error || !user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
     }
 
     res.json({
@@ -186,6 +233,7 @@ const updateUserRole = async (req, res) => {
       message: "User role updated successfully",
       user,
     });
+
   } catch (err) {
     console.error(err);
     res.status(500).json({
@@ -200,15 +248,17 @@ const updateUserRole = async (req, res) => {
 // 🟢 Get All Users (Super Admin Only)
 const getAllUsers = async (req, res) => {
   try {
-    // رجّع كل اليوزرز بدون الـ password
-    const users = await User.find().select("-password");
+    const { data: users, error } = await supabase
+      .from("users")
+      .select("id, name, email, role, created_at, updated_at"); // بدون password
+
+    if (error) throw error;
 
     res.json({
       success: true,
       count: users.length,
       data: users,
     });
-
   } catch (err) {
     console.error(err);
     res.status(500).json({
@@ -226,8 +276,11 @@ const deleteUser = async (req, res) => {
   try {
     const { id } = req.params;
 
-    // لو المستخدم اللي بيتحذف سوبر أدمن → ممنوع
-    const user = await User.findById(id);
+    const { data: user } = await supabase
+      .from("users")
+      .select("*")
+      .eq("id", id)
+      .single();
 
     if (!user) {
       return res.status(404).json({
@@ -243,12 +296,18 @@ const deleteUser = async (req, res) => {
       });
     }
 
-    await User.findByIdAndDelete(id);
+    const { error } = await supabase
+      .from("users")
+      .delete()
+      .eq("id", id);
+
+    if (error) throw error;
 
     res.json({
       success: true,
       message: "User deleted successfully",
     });
+
   } catch (err) {
     console.error(err);
     res.status(500).json({
