@@ -1,5 +1,7 @@
 // src/Controller/articleController.js
 const Article = require("../Models/Article");
+const supabase = require("../utils/supabaseClient");
+
 
 // ✅ إضافة مقالة جديدة
 const createArticle = async (req, res) => {
@@ -26,7 +28,13 @@ const createArticle = async (req, res) => {
       });
     }
 
-    const exists = await Article.findOne({ slug });
+    // تحقق من وجود slug مسبقاً
+    const { data: exists, error: existsError } = await supabase
+      .from("articles")
+      .select("id")
+      .eq("slug", slug)
+      .single();
+
     if (exists) {
       return res.status(400).json({
         success: false,
@@ -34,21 +42,27 @@ const createArticle = async (req, res) => {
       });
     }
 
-    const article = await Article.create({
-      title,
-      slug,
-      shortDescription,
-      content,
-      category,
-      author,
-      mainImage,
-      extraImages,
-      tags,
-      metaTitle,
-      metaDescription,
-      status,
-      createdBy: req.user ? req.user.id : null,
-    });
+    const { data: article, error } = await supabase
+      .from("articles")
+      .insert({
+        title,
+        slug,
+        short_description: shortDescription,
+        content,
+        category,
+        author,
+        main_image: mainImage,
+        extra_images: extraImages || [],
+        tags: tags || [],
+        meta_title: metaTitle,
+        meta_description: metaDescription,
+        status,
+        created_by: req.user ? req.user.id : null
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
 
     res.status(201).json({
       success: true,
@@ -65,11 +79,16 @@ const createArticle = async (req, res) => {
   }
 };
 
+
 // ✅ جلب كل المقالات
 const getAllArticles = async (req, res) => {
   try {
-    // ممكن تضيف فلترة بالحالة أو التصنيف لو حبيت
-    const articles = await Article.find().sort({ createdAt: -1 });
+    const { data: articles, error } = await supabase
+      .from("articles")
+      .select("*")
+      .order("created_at", { ascending: false });
+
+    if (error) throw error;
 
     res.json({
       success: true,
@@ -86,13 +105,20 @@ const getAllArticles = async (req, res) => {
   }
 };
 
+
 // ✅ جلب مقالة واحدة بالـ ID
 const getArticleById = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const article = await Article.findById(id);
-    if (!article) {
+    // جلب المقالة حسب id
+    const { data: article, error } = await supabase
+      .from("articles")
+      .select("*")
+      .eq("id", id)
+      .single(); // single() عشان يرجع عنصر واحد بدل array
+
+    if (error || !article) {
       return res.status(404).json({
         success: false,
         message: "Article not found",
@@ -118,8 +144,13 @@ const getArticleBySlug = async (req, res) => {
   try {
     const { slug } = req.params;
 
-    const article = await Article.findOne({ slug });
-    if (!article) {
+    const { data: article, error } = await supabase
+      .from("articles")
+      .select("*")
+      .eq("slug", slug)
+      .single();
+
+    if (error || !article) {
       return res.status(404).json({
         success: false,
         message: "Article not found",
@@ -140,17 +171,20 @@ const getArticleBySlug = async (req, res) => {
   }
 };
 
+
 // ✅ تعديل مقالة
 const updateArticle = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const article = await Article.findByIdAndUpdate(id, req.body, {
-      new: true,
-      runValidators: true,
-    });
+    const { data: article, error } = await supabase
+      .from("articles")
+      .update(req.body)
+      .eq("id", id)
+      .select()
+      .single();
 
-    if (!article) {
+    if (error || !article) {
       return res.status(404).json({
         success: false,
         message: "Article not found",
@@ -172,13 +206,18 @@ const updateArticle = async (req, res) => {
   }
 };
 
+
 // ✅ حذف مقالة
 const deleteArticle = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const article = await Article.findByIdAndDelete(id);
-    if (!article) {
+    const { data, error } = await supabase
+      .from("articles")
+      .delete()
+      .eq("id", id);
+
+    if (error || !data || data.length === 0) {
       return res.status(404).json({
         success: false,
         message: "Article not found",
@@ -198,6 +237,8 @@ const deleteArticle = async (req, res) => {
     });
   }
 };
+
+
 
 module.exports = {
   createArticle,
