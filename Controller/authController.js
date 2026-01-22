@@ -1,6 +1,8 @@
 // src/controllers/authController.js
 const jwt = require("jsonwebtoken");
 const supabase = require("../utils/supabaseClient");
+const bcrypt = require("bcryptjs"); // أو bcrypt
+
 
 // const User = require("../Models/User"); // أو ../models/User حسب الفولدر
 
