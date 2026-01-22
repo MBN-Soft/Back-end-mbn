@@ -2,7 +2,7 @@
 const jwt = require("jsonwebtoken");
 const supabase = require("../utils/supabaseClient");
 
-const User = require("../Models/User"); // أو ../models/User حسب الفولدر
+// const User = require("../Models/User"); // أو ../models/User حسب الفولدر
 
 const createToken = (user) => {
   return jwt.sign(

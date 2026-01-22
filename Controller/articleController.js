@@ -1,5 +1,5 @@
 // src/Controller/articleController.js
-const Article = require("../Models/Article");
+// const Article = require("../Models/Article");
 const supabase = require("../utils/supabaseClient");
 
 

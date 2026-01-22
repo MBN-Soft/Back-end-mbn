@@ -2,7 +2,7 @@
 const express = require("express");
 const cors = require("cors");
 const path = require("path");
-const connectDB = require("./Config/db");
+// const connectDB = require("./Config/db");
 
 const authRoutes = require("./Routes/authRoutes");
 const contactRoutes = require("./Routes/contactRoutes");
@@ -21,7 +21,7 @@ app.use(express.json());
 app.use("/uploads", express.static(path.join(__dirname, "..", "uploads")));
 
 // ================== Connect DB ==================
-connectDB();
+// connectDB();
 
 // ================== Routes ==================
 app.use("/api/auth", authRoutes);
