@@ -1,4 +1,34 @@
 const supabase = require("../utils/supabaseClient");
+
+// Helpers: يحوّل من API fields إلى DB columns
+const mapBodyToDb = (body) => {
+  const {
+    Title,
+    Tag,
+    SemiDesc,
+    FullDesc,
+    ClientName,
+    Tecnology,   // انت كاتبها Tecnology في الـ API
+    FinishDate,
+    Category,
+    Link,
+  } = body;
+
+  return {
+    title: Title,
+    tag: Tag,
+    semi_desc: SemiDesc,
+    full_desc: FullDesc,
+    client_name: ClientName,
+    technology: Tecnology,
+    category: Category,
+    finish_date: FinishDate,
+    // مفيش عمود link في جدولك حسب اللي بعته -> هنخليه اختياري لو أنت هتضيفه لاحقًا
+    // لو عندك عمود link فعلًا ضيفه في الجدول أو سيبه هنا
+    ...(Link !== undefined ? { link: Link || null } : {}),
+  };
+};
+
 // ✅ إضافة مشروع جديد
 const createProject = async (req, res) => {
   try {
@@ -10,10 +40,10 @@ const createProject = async (req, res) => {
       ClientName,
       Tecnology,
       FinishDate,
-      Link,
       Category,
     } = req.body;
 
+    // Validation required fields
     if (
       !Title || !Tag || !SemiDesc || !FullDesc ||
       !ClientName || !Tecnology || !FinishDate || !Category
@@ -37,27 +67,22 @@ const createProject = async (req, res) => {
     const mainImagePath = `/uploads/project/${main.filename}`;
     const galleryPaths = gallery.map((f) => `/uploads/project/${f.filename}`);
 
+    // Map to DB columns
+    const payload = mapBodyToDb(req.body);
+
+    // Attach image paths to DB columns
+    payload.main_image = mainImagePath;
+    payload.gallery_images = galleryPaths;
+
     const { data: project, error } = await supabase
       .from("projects")
-      .insert({
-        Title,
-        Tag,
-        SemiDesc,
-        FullDesc,
-        ClientName,
-        Tecnology,
-        FinishDate,
-        Category,
-        Link: Link || null,
-        mainImage: mainImagePath,
-        galleryImages: galleryPaths
-      })
-      .select()
+      .insert(payload)
+      .select("*")
       .single();
 
     if (error) throw error;
 
-    res.status(201).json({
+    return res.status(201).json({
       success: true,
       message: "Project created successfully",
       data: project,
@@ -65,7 +90,7 @@ const createProject = async (req, res) => {
 
   } catch (err) {
     console.error(err);
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: "Error creating project",
       error: err.message,
@@ -83,11 +108,11 @@ const getAllProjects = async (req, res) => {
 
     if (error) throw error;
 
-    res.json({ success: true, data: projects });
+    return res.json({ success: true, data: projects });
 
   } catch (err) {
     console.error(err);
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: "Error fetching projects",
       error: err.message,
@@ -110,11 +135,11 @@ const getProjectById = async (req, res) => {
       return res.status(404).json({ success: false, message: "Project not found" });
     }
 
-    res.json({ success: true, data: project });
+    return res.json({ success: true, data: project });
 
   } catch (err) {
     console.error(err);
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: "Error fetching project",
       error: err.message,
@@ -126,26 +151,49 @@ const getProjectById = async (req, res) => {
 const updateProject = async (req, res) => {
   try {
     const { id } = req.params;
-    const updates = { ...req.body };
 
+    // هنحوّل فقط الحقول اللي جاية (partial update)
+    const updates = {};
+
+    if (req.body.Title !== undefined) updates.title = req.body.Title;
+    if (req.body.Tag !== undefined) updates.tag = req.body.Tag;
+    if (req.body.SemiDesc !== undefined) updates.semi_desc = req.body.SemiDesc;
+    if (req.body.FullDesc !== undefined) updates.full_desc = req.body.FullDesc;
+    if (req.body.ClientName !== undefined) updates.client_name = req.body.ClientName;
+    if (req.body.Tecnology !== undefined) updates.technology = req.body.Tecnology;
+    if (req.body.Category !== undefined) updates.category = req.body.Category;
+    if (req.body.FinishDate !== undefined) updates.finish_date = req.body.FinishDate;
+
+    // لو عندك عمود link فعلاً في الجدول، فعّل السطر ده
+    if (req.body.Link !== undefined) updates.link = req.body.Link || null;
+
+    // Files
     const main = req.files?.mainImage?.[0];
     const gallery = req.files?.galleryImages || [];
 
-    if (main) updates.mainImage = `/uploads/project/${main.filename}`;
-    if (gallery.length > 0) updates.galleryImages = gallery.map(f => `/uploads/project/${f.filename}`);
+    if (main) updates.main_image = `/uploads/project/${main.filename}`;
+    if (gallery.length > 0) updates.gallery_images = gallery.map(f => `/uploads/project/${f.filename}`);
+
+    // لو مفيش أي updates
+    if (Object.keys(updates).length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "No fields provided to update",
+      });
+    }
 
     const { data: project, error } = await supabase
       .from("projects")
       .update(updates)
       .eq("id", id)
-      .select()
+      .select("*")
       .single();
 
     if (error || !project) {
       return res.status(404).json({ success: false, message: "Project not found" });
     }
 
-    res.json({
+    return res.json({
       success: true,
       message: "Project updated successfully",
       data: project,
@@ -153,7 +201,7 @@ const updateProject = async (req, res) => {
 
   } catch (err) {
     console.error(err);
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: "Error updating project",
       error: err.message,
@@ -167,20 +215,20 @@ const deleteProject = async (req, res) => {
     const { id } = req.params;
 
     const { data, error } = await supabase
-  .from("projects")
-  .delete()
-  .eq("id", id)
-  .select();
+      .from("projects")
+      .delete()
+      .eq("id", id)
+      .select("*");
 
     if (error || !data || data.length === 0) {
       return res.status(404).json({ success: false, message: "Project not found" });
     }
 
-    res.json({ success: true, message: "Project deleted successfully" });
+    return res.json({ success: true, message: "Project deleted successfully" });
 
   } catch (err) {
     console.error(err);
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: "Error deleting project",
       error: err.message,
