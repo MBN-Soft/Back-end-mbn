@@ -167,9 +167,10 @@ const deleteProject = async (req, res) => {
     const { id } = req.params;
 
     const { data, error } = await supabase
-      .from("projects")
-      .delete()
-      .eq("id", id);
+  .from("projects")
+  .delete()
+  .eq("id", id)
+  .select();
 
     if (error || !data || data.length === 0) {
       return res.status(404).json({ success: false, message: "Project not found" });
