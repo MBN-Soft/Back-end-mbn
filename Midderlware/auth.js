@@ -1,10 +1,10 @@
-// src/middleware/auth.js
 const jwt = require("jsonwebtoken");
 
-// ✅ التحقق من وجود توكن وصحته
+// ✅ Auth Middleware (JWT)
 const authMiddleware = (req, res, next) => {
   try {
-    const authHeader = req.headers.authorization || req.headers["authorization"];
+    const authHeader =
+      req.headers.authorization || req.headers["authorization"];
 
     if (!authHeader) {
       return res.status(401).json({
@@ -13,7 +13,7 @@ const authMiddleware = (req, res, next) => {
       });
     }
 
-    // لازم يكون Bearer token
+    // Bearer TOKEN
     const parts = authHeader.split(" ");
     if (parts.length !== 2 || parts[0] !== "Bearer") {
       return res.status(401).json({
@@ -25,34 +25,40 @@ const authMiddleware = (req, res, next) => {
     const token = parts[1];
 
     if (!process.env.JWT_SECRET) {
-      console.error("JWT_SECRET is not defined in environment variables");
+      console.error("JWT_SECRET is missing");
       return res.status(500).json({
         success: false,
         message: "Server configuration error",
       });
     }
 
-    jwt.verify(token, process.env.JWT_SECRET, (err, decoded) => {
-      if (err) {
-        return res.status(401).json({
-          success: false,
-          message: "Invalid or expired token",
-        });
-      }
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-      req.user = decoded; // { id, email, role }
-      next();
-    });
-  } catch (err) {
-    console.error("Auth middleware error:", err);
-    return res.status(500).json({
+    // 🔥 أهم سطر (UUID مطابق لجدول users)
+    req.user = {
+      id: decoded.id,       // UUID
+      email: decoded.email,
+      role: decoded.role,
+    };
+
+    if (!req.user.id) {
+      return res.status(401).json({
+        success: false,
+        message: "Invalid token payload",
+      });
+    }
+
+    next();
+  } catch (error) {
+    console.error("Auth error:", error);
+    return res.status(401).json({
       success: false,
-      message: "Authentication error",
+      message: "Invalid or expired token",
     });
   }
 };
 
-// ✅ ميدل وير عام للأدوار
+// ✅ Role Middleware
 const allowRoles = (...roles) => {
   return (req, res, next) => {
     if (!req.user || !roles.includes(req.user.role)) {
@@ -65,13 +71,8 @@ const allowRoles = (...roles) => {
   };
 };
 
-// 👑 السوبر أدمن فقط
 const superAdminOnly = allowRoles("superadmin");
-
-// ✅ للأدمن + السوبر
 const adminMiddleware = allowRoles("admin", "superadmin");
-
-// ✅ للمشاريع: كاتب + أدمن + سوبر
 const ProjectMiddleware = allowRoles("writer", "admin", "superadmin");
 
 module.exports = {
