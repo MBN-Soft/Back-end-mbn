@@ -6,6 +6,13 @@ const supabase = require("../utils/supabaseClient");
 // ✅ إضافة مقالة جديدة
 const createArticle = async (req, res) => {
   try {
+    if (!req.user || !req.user.id) {
+      return res.status(401).json({
+        success: false,
+        message: "Unauthorized",
+      });
+    }
+
     const {
       title,
       slug,
@@ -24,12 +31,12 @@ const createArticle = async (req, res) => {
     if (!title || !slug || !shortDescription || !content || !mainImage) {
       return res.status(400).json({
         success: false,
-        message: "title, slug, shortDescription, content, mainImage are required",
+        message:
+          "title, slug, shortDescription, content, mainImage are required",
       });
     }
 
-    // تحقق من وجود slug مسبقاً
-    const { data: exists, error: existsError } = await supabase
+    const { data: exists } = await supabase
       .from("articles")
       .select("id")
       .eq("slug", slug)
@@ -38,7 +45,7 @@ const createArticle = async (req, res) => {
     if (exists) {
       return res.status(400).json({
         success: false,
-        message: "Slug already exists, please use another slug",
+        message: "Slug already exists",
       });
     }
 
@@ -57,7 +64,7 @@ const createArticle = async (req, res) => {
         meta_title: metaTitle,
         meta_description: metaDescription,
         status,
-        created_by: req.user ? req.user.id : null
+        created_by: req.user.id, // 🔥 UUID مطابق FK
       })
       .select()
       .single();
@@ -70,7 +77,7 @@ const createArticle = async (req, res) => {
       data: article,
     });
   } catch (err) {
-    console.error("Error creating article:", err);
+    console.error("Create article error:", err);
     res.status(500).json({
       success: false,
       message: "Error creating article",
