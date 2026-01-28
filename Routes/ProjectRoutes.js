@@ -24,6 +24,12 @@ const router = express.Router();
 // ✅ عرض كل المشاريع (public)
 router.get("/projects", getAllProjects);
 
+
+router.get("/health", (req, res) => {
+  res.status(200).json({ status: "Server is awake" });
+});
+
+
 // ✅ عرض مشروع واحد (public + validate ID)
 router.get("/projects/:id", validateObjectId, getProjectById);
 
