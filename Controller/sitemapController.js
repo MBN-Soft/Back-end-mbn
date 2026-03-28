@@ -1,4 +1,4 @@
-const supabase = require("../config/supabase"); // غير المسار حسب مشروعك
+const supabase = require("../utils/supabaseClient");
 
 exports.getSitemap = async (req, res) => {
   try {
