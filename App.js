@@ -9,6 +9,7 @@ const contactRoutes = require("./Routes/contactRoutes");
 const adminRoutes = require("./Routes/adminRoutes");
 const projectRoutes = require("./Routes/ProjectRoutes");
 const articleRoutes = require("./Routes/articleRoutes");
+const sitemapRoutes = require("./Routes/sitemapRoutes");
 
 const app = express();
 
@@ -29,6 +30,7 @@ app.use("/api/contact", contactRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api", projectRoutes);
 app.use("/api", articleRoutes);
+app.use("/api", sitemapRoutes);
 
 // ================== Test route ==================
 app.get("/", (req, res) => {
