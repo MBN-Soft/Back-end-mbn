@@ -30,7 +30,7 @@ app.use("/api/contact", contactRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api", projectRoutes);
 app.use("/api", articleRoutes);
-app.use("/api", sitemapRoutes);
+app.use("/", sitemapRoutes);
 
 // ================== Test route ==================
 app.get("/", (req, res) => {
