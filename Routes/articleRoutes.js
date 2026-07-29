@@ -28,7 +28,7 @@ router.get("/articles", getAllArticles);
 router.get("/articles/:id", validateObjectId, getArticleById);
 
 // ✅ (اختياري) GET: مقالة بالـ slug (Public)
-router.get("/article-slug/:slug", getArticleBySlug);
+router.get("/\/:slug", getArticleBySlug);
 
 // ✅ POST: إضافة مقالة (Writer / Admin / SuperAdmin)
 router.post(

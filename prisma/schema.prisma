@@ -1,0 +1,93 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  superadmin
+  admin
+  writer
+}
+
+enum ArticleStatus {
+  draft
+  published
+}
+
+model User {
+  id       Int      @id @default(autoincrement())
+  name     String
+  email    String   @unique
+  password String
+  role     UserRole @default(writer)
+
+  articles Article[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Article {
+  id               Int           @id @default(autoincrement())
+  title            String
+  slug             String        @unique
+  shortDescription String        @db.VarChar(300)
+  content          String        @db.LongText
+  category         String?
+  author           String?
+  mainImage        String
+  extraImages      Json?
+  tags             Json?
+  metaTitle        String?       @db.VarChar(70)
+  metaDescription  String?       @db.VarChar(170)
+  status           ArticleStatus @default(draft)
+
+  createdById Int?
+  createdBy   User? @relation(fields: [createdById], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([createdById])
+  @@index([status])
+  @@index([category])
+}
+
+model ContactMessage {
+  id          Int    @id @default(autoincrement())
+  name        String
+  email       String
+  phone       String
+  serviceType String
+  status      String @default("new")
+  message     String @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+  @@index([email])
+}
+
+model Project {
+  id            Int      @id @default(autoincrement())
+  title         String
+  tag           String
+  semiDesc      String   @db.Text
+  fullDesc      String   @db.LongText
+  clientName    String
+  technology    String
+  category      String
+  finishDate    DateTime
+  mainImage     String
+  galleryImages Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([category])
+}
